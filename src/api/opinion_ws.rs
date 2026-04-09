@@ -8,7 +8,7 @@
 //! - Market status changes
 
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{Price, Quantity},
 };
 use chrono::{DateTime, Utc};
@@ -399,7 +399,7 @@ impl OpinionWebSocket {
 
         if let Some(cmd_tx) = &self.cmd_tx {
             cmd_tx.send(OpinionWsCommand::SubscribeMarket(market_ids.clone())).await
-                .map_err(|_| ArbitrageError::WebSocket("Failed to send subscribe command".to_string()))?;
+                .map_err(|_| Error::WebSocket("Failed to send subscribe command".to_string()))?;
         }
 
         self.subscribed_markets.write().await.extend(market_ids);
@@ -410,7 +410,7 @@ impl OpinionWebSocket {
     pub async fn subscribe_orders(&self) -> Result<()> {
         if let Some(cmd_tx) = &self.cmd_tx {
             cmd_tx.send(OpinionWsCommand::SubscribeOrders).await
-                .map_err(|_| ArbitrageError::WebSocket("Failed to send subscribe command".to_string()))?;
+                .map_err(|_| Error::WebSocket("Failed to send subscribe command".to_string()))?;
         }
         Ok(())
     }
@@ -450,7 +450,7 @@ impl OpinionWebSocket {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
-        Err(ArbitrageError::WebSocket("Connection timeout".to_string()))
+        Err(Error::WebSocket("Connection timeout".to_string()))
     }
 
     /// Connection loop with reconnection
@@ -516,10 +516,10 @@ impl OpinionWebSocket {
         latency: &Arc<RwLock<u64>>,
     ) -> Result<()> {
         let url = Url::parse(&config.ws_url)
-            .map_err(|e| ArbitrageError::WebSocket(format!("Invalid URL: {}", e)))?;
+            .map_err(|e| Error::WebSocket(format!("Invalid URL: {}", e)))?;
 
         let (ws_stream, _) = connect_async(url).await
-            .map_err(|e| ArbitrageError::WebSocket(format!("Connection failed: {}", e)))?;
+            .map_err(|e| Error::WebSocket(format!("Connection failed: {}", e)))?;
 
         let (mut write, mut read) = ws_stream.split();
 
@@ -528,7 +528,7 @@ impl OpinionWebSocket {
         let message = format!("{}{}", timestamp, config.api_key);
 
         let mut mac = HmacSha256::new_from_slice(config.api_secret.as_bytes())
-            .map_err(|_| ArbitrageError::WebSocket("HMAC init failed".to_string()))?;
+            .map_err(|_| Error::WebSocket("HMAC init failed".to_string()))?;
         mac.update(message.as_bytes());
         let session = hex::encode(mac.finalize().into_bytes());
 
@@ -538,9 +538,9 @@ impl OpinionWebSocket {
             session,
         };
         let auth_str = serde_json::to_string(&auth_msg)
-            .map_err(|e| ArbitrageError::Internal(format!("Serialize error: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Serialize error: {}", e)))?;
         write.send(Message::Text(auth_str)).await
-            .map_err(|e| ArbitrageError::WebSocket(format!("Auth send failed: {}", e)))?;
+            .map_err(|e| Error::WebSocket(format!("Auth send failed: {}", e)))?;
 
         // Wait for connection response
         let mut msg_id = 1i64;
@@ -569,7 +569,7 @@ impl OpinionWebSocket {
                             return Ok(());
                         }
                         Some(Err(e)) => {
-                            return Err(ArbitrageError::WebSocket(format!("Read error: {}", e)));
+                            return Err(Error::WebSocket(format!("Read error: {}", e)));
                         }
                         None => {
                             return Ok(());
@@ -588,17 +588,17 @@ impl OpinionWebSocket {
                                 market_data_filter: OpinionMarketDataFilter::default(),
                             };
                             let msg_str = serde_json::to_string(&sub_msg)
-                                .map_err(|e| ArbitrageError::Internal(format!("Serialize error: {}", e)))?;
+                                .map_err(|e| Error::Internal(format!("Serialize error: {}", e)))?;
                             write.send(Message::Text(msg_str)).await
-                                .map_err(|e| ArbitrageError::WebSocket(format!("Send error: {}", e)))?;
+                                .map_err(|e| Error::WebSocket(format!("Send error: {}", e)))?;
                         }
                         Some(OpinionWsCommand::SubscribeOrders) => {
                             msg_id += 1;
                             let sub_msg = OpinionWsMessage::OrderSubscription { id: msg_id };
                             let msg_str = serde_json::to_string(&sub_msg)
-                                .map_err(|e| ArbitrageError::Internal(format!("Serialize error: {}", e)))?;
+                                .map_err(|e| Error::Internal(format!("Serialize error: {}", e)))?;
                             write.send(Message::Text(msg_str)).await
-                                .map_err(|e| ArbitrageError::WebSocket(format!("Send error: {}", e)))?;
+                                .map_err(|e| Error::WebSocket(format!("Send error: {}", e)))?;
                         }
                         Some(OpinionWsCommand::Disconnect) => {
                             let _ = write.close().await;
@@ -615,9 +615,9 @@ impl OpinionWebSocket {
                     last_heartbeat = std::time::Instant::now();
                     let hb_msg = OpinionWsMessage::Heartbeat { id: msg_id };
                     let hb_str = serde_json::to_string(&hb_msg)
-                        .map_err(|e| ArbitrageError::Internal(format!("Serialize error: {}", e)))?;
+                        .map_err(|e| Error::Internal(format!("Serialize error: {}", e)))?;
                     write.send(Message::Text(hb_str)).await
-                        .map_err(|e| ArbitrageError::WebSocket(format!("Heartbeat failed: {}", e)))?;
+                        .map_err(|e| Error::WebSocket(format!("Heartbeat failed: {}", e)))?;
                 }
             }
         }
@@ -635,7 +635,7 @@ impl OpinionWebSocket {
     ) -> Result<()> {
         // Parse the message - Opinion uses a specific format
         let msg: serde_json::Value = serde_json::from_str(text)
-            .map_err(|e| ArbitrageError::Internal(format!("Parse error: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Parse error: {}", e)))?;
 
         let op = msg.get("op").and_then(|v| v.as_str()).unwrap_or("");
 

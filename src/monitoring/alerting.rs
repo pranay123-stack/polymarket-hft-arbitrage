@@ -14,7 +14,7 @@
 //! - PagerDuty (for critical alerts)
 //! - Email
 
-use crate::core::error::{ArbitrageError, Result};
+use crate::core::error::{Error, Result};
 use crate::execution::cross_platform::{ExecutionState, FilledLegInfo, Venue, AbortReason};
 use chrono::{DateTime, Utc};
 use reqwest::Client;
@@ -451,7 +451,7 @@ impl AlertingSystem {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Internal(format!("Slack send failed: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Slack send failed: {}", e)))?;
 
         if !response.status().is_success() {
             warn!("Slack alert failed: {}", response.status());
@@ -501,7 +501,7 @@ impl AlertingSystem {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Internal(format!("Discord send failed: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Discord send failed: {}", e)))?;
 
         if !response.status().is_success() {
             warn!("Discord alert failed: {}", response.status());
@@ -547,7 +547,7 @@ impl AlertingSystem {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Internal(format!("Telegram send failed: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Telegram send failed: {}", e)))?;
 
         if !response.status().is_success() {
             warn!("Telegram alert failed: {}", response.status());
@@ -582,7 +582,7 @@ impl AlertingSystem {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Internal(format!("PagerDuty send failed: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("PagerDuty send failed: {}", e)))?;
 
         if !response.status().is_success() {
             warn!("PagerDuty alert failed: {}", response.status());

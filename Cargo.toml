@@ -125,6 +125,8 @@ backoff = { version = "0.4", features = ["tokio"] }
 governor = "0.6"
 itertools = "0.12"
 scopeguard = "1.2"
+urlencoding = "2.1"
+humantime = "2.1"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["async_tokio"] }

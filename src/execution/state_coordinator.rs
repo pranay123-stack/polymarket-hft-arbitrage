@@ -15,7 +15,7 @@ use crate::api::{
     opinion::{OpinionClient, OpinionBalance},
 };
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{Position, Price, Quantity, Side, Outcome},
 };
 use crate::execution::cross_platform::{
@@ -184,7 +184,7 @@ impl StateCoordinator {
                     .max_connections(5)
                     .connect(&config.database_url)
                     .await
-                    .map_err(|e| ArbitrageError::Database(format!("Failed to connect: {}", e)))?
+                    .map_err(|e| Error::Database(format!("Failed to connect: {}", e)))?
             )
         } else {
             None
@@ -264,7 +264,7 @@ impl StateCoordinator {
             "#)
             .execute(pool)
             .await
-            .map_err(|e| ArbitrageError::Database(format!("Schema init failed: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Schema init failed: {}", e)))?;
 
             info!("Database schema initialized");
         }
@@ -298,11 +298,11 @@ impl StateCoordinator {
         // Save to database
         if let Some(pool) = &self.db_pool {
             let state_json = serde_json::to_value(&record.state)
-                .map_err(|e| ArbitrageError::Internal(format!("Serialization error: {}", e)))?;
+                .map_err(|e| Error::Internal(format!("Serialization error: {}", e)))?;
             let leg_a_json = serde_json::to_value(&record.leg_a)
-                .map_err(|e| ArbitrageError::Internal(format!("Serialization error: {}", e)))?;
+                .map_err(|e| Error::Internal(format!("Serialization error: {}", e)))?;
             let leg_b_json = serde_json::to_value(&record.leg_b)
-                .map_err(|e| ArbitrageError::Internal(format!("Serialization error: {}", e)))?;
+                .map_err(|e| Error::Internal(format!("Serialization error: {}", e)))?;
 
             sqlx::query(r#"
                 INSERT INTO execution_state (id, opportunity_id, state, leg_a, leg_b, started_at, last_updated, hedge_retry_count)
@@ -322,7 +322,7 @@ impl StateCoordinator {
             .bind(record.hedge_retry_count as i32)
             .execute(pool)
             .await
-            .map_err(|e| ArbitrageError::Database(format!("Failed to save execution: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to save execution: {}", e)))?;
         }
 
         // Check if this execution needs recovery tracking
@@ -405,7 +405,7 @@ impl StateCoordinator {
             .bind(recovery.created_at)
             .execute(pool)
             .await
-            .map_err(|e| ArbitrageError::Database(format!("Failed to create recovery: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to create recovery: {}", e)))?;
         }
 
         warn!("Created pending recovery {} for execution {}", recovery.id, record.id);
@@ -424,7 +424,7 @@ impl StateCoordinator {
             )
             .fetch_all(pool)
             .await
-            .map_err(|e| ArbitrageError::Database(format!("Failed to load recoveries: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to load recoveries: {}", e)))?;
 
             let mut recoveries = self.pending_recoveries.write().await;
 
@@ -740,7 +740,7 @@ impl StateCoordinator {
             .bind(recovery.id)
             .execute(pool)
             .await
-            .map_err(|e| ArbitrageError::Database(format!("Failed to update recovery: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to update recovery: {}", e)))?;
         }
 
         Ok(())
@@ -751,7 +751,7 @@ impl StateCoordinator {
         let mut recovery = {
             let recoveries = self.pending_recoveries.read().await;
             recoveries.get(&recovery_id).cloned()
-                .ok_or_else(|| ArbitrageError::Internal("Recovery not found".to_string()))?
+                .ok_or_else(|| Error::Internal("Recovery not found".to_string()))?
         };
 
         recovery.state = RecoveryState::ManuallyResolved;

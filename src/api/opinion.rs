@@ -9,7 +9,7 @@
 //! - Commission on net winnings
 
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{Order, OrderStatus, OrderType, Outcome, Position, Price, Quantity, Side, Trade},
 };
 use chrono::{DateTime, Utc};
@@ -255,7 +255,7 @@ impl OpinionClient {
             .timeout(std::time::Duration::from_millis(config.timeout_ms))
             .pool_max_idle_per_host(10)
             .build()
-            .map_err(|e| ArbitrageError::Api(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to create HTTP client: {}", e)))?;
 
         Ok(Self {
             config,
@@ -306,10 +306,10 @@ impl OpinionClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get market: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get market: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get market {}: {}",
                 market_id,
                 response.status()
@@ -317,7 +317,7 @@ impl OpinionClient {
         }
 
         let market: OpinionMarket = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse market: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse market: {}", e)))?;
 
         // Update cache
         {
@@ -346,10 +346,10 @@ impl OpinionClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to search markets: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to search markets: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to search markets: {}",
                 response.status()
             )));
@@ -361,7 +361,7 @@ impl OpinionClient {
         }
 
         let resp: SearchResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse search results: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse search results: {}", e)))?;
 
         Ok(resp.markets)
     }
@@ -381,17 +381,17 @@ impl OpinionClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get orderbook: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get orderbook: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get orderbook: {}",
                 response.status()
             )));
         }
 
         let orderbook: OpinionOrderbook = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse orderbook: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse orderbook: {}", e)))?;
 
         // Update cache
         {
@@ -434,20 +434,20 @@ impl OpinionClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to place order: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to place order: {}", e)))?;
 
         let status = response.status();
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
             error!("Opinion order failed: {} - {}", status, body);
-            return Err(ArbitrageError::OrderRejected(format!(
+            return Err(Error::OrderRejected(format!(
                 "Opinion order rejected: {} - {}",
                 status, body
             )));
         }
 
         let order: OpinionOrder = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse order response: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse order response: {}", e)))?;
 
         info!(
             "Opinion order placed: {} {:?} @ {} size {}",
@@ -467,10 +467,10 @@ impl OpinionClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get order: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get order: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get order {}: {}",
                 order_id,
                 response.status()
@@ -478,7 +478,7 @@ impl OpinionClient {
         }
 
         let order: OpinionOrder = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse order: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse order: {}", e)))?;
 
         Ok(order)
     }
@@ -493,10 +493,10 @@ impl OpinionClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to cancel order: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to cancel order: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to cancel order {}: {}",
                 order_id,
                 response.status()
@@ -504,7 +504,7 @@ impl OpinionClient {
         }
 
         let order: OpinionOrder = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse cancel response: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse cancel response: {}", e)))?;
 
         Ok(order)
     }
@@ -519,17 +519,17 @@ impl OpinionClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get balance: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get balance: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get balance: {}",
                 response.status()
             )));
         }
 
         let balance: OpinionBalance = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse balance: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse balance: {}", e)))?;
 
         Ok(balance)
     }
@@ -550,10 +550,10 @@ impl OpinionClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get orders: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get orders: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get orders: {}",
                 response.status()
             )));
@@ -565,7 +565,7 @@ impl OpinionClient {
         }
 
         let resp: OrdersResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse orders: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse orders: {}", e)))?;
 
         Ok(resp.orders)
     }

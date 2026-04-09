@@ -21,7 +21,7 @@ use crate::api::{
     opinion::{OpinionClient, OpinionMarket, OpinionOrderbook},
 };
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{Market, Orderbook, Price, Quantity, Side, Outcome},
 };
 use crate::execution::cross_platform::{

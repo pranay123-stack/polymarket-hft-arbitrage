@@ -22,7 +22,7 @@ use crate::api::{
     opinion::{OpinionClient, OpinionOrder, OpinionAction},
 };
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{Order, OrderStatus, OrderType, Outcome, Price, Quantity, Side},
 };
 use chrono::{DateTime, Utc};
@@ -242,7 +242,7 @@ impl OrderAmendmentEngine {
         {
             let mut pending = self.pending_amendments.write().await;
             if pending.contains(&request.order_id) {
-                return Err(ArbitrageError::Execution(format!(
+                return Err(Error::Execution(format!(
                     "Amendment already pending for order {}",
                     request.order_id
                 )));
@@ -293,7 +293,7 @@ impl OrderAmendmentEngine {
         match current_order.status.to_uppercase().as_str() {
             "LIVE" | "PENDING" | "OPEN" => {}
             status => {
-                return Err(ArbitrageError::Execution(format!(
+                return Err(Error::Execution(format!(
                     "Cannot amend order in status: {}",
                     status
                 )));
@@ -317,7 +317,7 @@ impl OrderAmendmentEngine {
         if let Err(e) = cancel_result {
             // Order may have filled while we tried to cancel
             warn!("Cancel failed during amendment: {}", e);
-            return Err(ArbitrageError::Execution(format!(
+            return Err(Error::Execution(format!(
                 "Failed to cancel order for amendment: {}",
                 e
             )));
@@ -331,7 +331,7 @@ impl OrderAmendmentEngine {
             side: request.side,
             outcome: request.outcome,
             price: Price::new(new_price).ok_or_else(||
-                ArbitrageError::Execution("Invalid price".to_string()))?,
+                Error::Execution("Invalid price".to_string()))?,
             quantity: Quantity::new(new_quantity).unwrap_or(Quantity::ZERO),
             order_type: OrderType::Gtc,
             expiration: None,
@@ -369,7 +369,7 @@ impl OrderAmendmentEngine {
                 );
                 // This is a critical error - order was cancelled but replacement failed
                 // The position is now exposed
-                Err(ArbitrageError::Execution(format!(
+                Err(Error::Execution(format!(
                     "Amendment failed: cancelled but couldn't replace: {}",
                     e
                 )))
@@ -388,7 +388,7 @@ impl OrderAmendmentEngine {
 
         // Check if order is amendable
         if current_order.status != "resting" && current_order.status != "pending" {
-            return Err(ArbitrageError::Execution(format!(
+            return Err(Error::Execution(format!(
                 "Cannot amend Kalshi order in status: {}",
                 current_order.status
             )));
@@ -417,7 +417,7 @@ impl OrderAmendmentEngine {
 
         if let Err(e) = cancel_result {
             warn!("Kalshi cancel failed during amendment: {}", e);
-            return Err(ArbitrageError::Execution(format!(
+            return Err(Error::Execution(format!(
                 "Failed to cancel Kalshi order for amendment: {}",
                 e
             )));
@@ -429,7 +429,7 @@ impl OrderAmendmentEngine {
             request.side,
             request.outcome,
             Price::new(new_price).ok_or_else(||
-                ArbitrageError::Execution("Invalid price".to_string()))?,
+                Error::Execution("Invalid price".to_string()))?,
             Quantity::new(new_quantity).unwrap_or(Quantity::ZERO),
             OrderType::Gtc,
         ).await;
@@ -460,7 +460,7 @@ impl OrderAmendmentEngine {
                     "Failed to place Kalshi replacement order: {}. Original {} cancelled!",
                     e, request.order_id
                 );
-                Err(ArbitrageError::Execution(format!(
+                Err(Error::Execution(format!(
                     "Kalshi amendment failed: cancelled but couldn't replace: {}",
                     e
                 )))
@@ -479,7 +479,7 @@ impl OrderAmendmentEngine {
 
         // Check if order is amendable
         if current_order.status != "EXECUTABLE" && current_order.status != "PENDING" {
-            return Err(ArbitrageError::Execution(format!(
+            return Err(Error::Execution(format!(
                 "Cannot amend Opinion order in status: {}",
                 current_order.status
             )));
@@ -500,7 +500,7 @@ impl OrderAmendmentEngine {
 
         if let Err(e) = cancel_result {
             warn!("Opinion cancel failed during amendment: {}", e);
-            return Err(ArbitrageError::Execution(format!(
+            return Err(Error::Execution(format!(
                 "Failed to cancel Opinion order for amendment: {}",
                 e
             )));
@@ -513,7 +513,7 @@ impl OrderAmendmentEngine {
             &request.token_id,
             action,
             Price::new(new_price).ok_or_else(||
-                ArbitrageError::Execution("Invalid price".to_string()))?,
+                Error::Execution("Invalid price".to_string()))?,
             Quantity::new(new_quantity).unwrap_or(Quantity::ZERO),
         ).await;
 
@@ -543,7 +543,7 @@ impl OrderAmendmentEngine {
                     "Failed to place Opinion replacement order: {}. Original {} cancelled!",
                     e, request.order_id
                 );
-                Err(ArbitrageError::Execution(format!(
+                Err(Error::Execution(format!(
                     "Opinion amendment failed: cancelled but couldn't replace: {}",
                     e
                 )))
@@ -603,7 +603,7 @@ impl OrderAmendmentEngine {
         }
 
         Err(last_error.unwrap_or_else(||
-            ArbitrageError::Execution("Amendment failed after all retries".to_string())
+            Error::Execution("Amendment failed after all retries".to_string())
         ))
     }
 
@@ -704,7 +704,7 @@ impl OrderAmendmentEngine {
         };
 
         let new_price = Price::new(new_price.max(dec!(0.01)).min(dec!(0.99)))
-            .ok_or_else(|| ArbitrageError::Execution("Invalid improved price".to_string()))?;
+            .ok_or_else(|| Error::Execution("Invalid improved price".to_string()))?;
 
         let request = AmendmentRequest::price_only(
             order_id,

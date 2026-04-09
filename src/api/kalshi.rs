@@ -10,7 +10,7 @@
 //! - REST + WebSocket API
 
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{Order, OrderStatus, OrderType, Outcome, Position, Price, Quantity, Side, Trade},
 };
 use chrono::{DateTime, Utc};
@@ -245,7 +245,7 @@ impl KalshiClient {
             .timeout(std::time::Duration::from_millis(config.timeout_ms))
             .pool_max_idle_per_host(10)
             .build()
-            .map_err(|e| ArbitrageError::Api(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to create HTTP client: {}", e)))?;
 
         Ok(Self {
             config,
@@ -279,19 +279,19 @@ impl KalshiClient {
             })
             .send()
             .await
-            .map_err(|e| ArbitrageError::Api(format!("Kalshi login failed: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Kalshi login failed: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Kalshi login failed: {} - {}",
                 status, body
             )));
         }
 
         let login_resp: LoginResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse login response: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse login response: {}", e)))?;
 
         let auth_token = AuthToken {
             token: login_resp.token,
@@ -317,7 +317,7 @@ impl KalshiClient {
                 let auth = self.auth.read().await;
                 auth.as_ref()
                     .map(|t| format!("Bearer {}", t.token))
-                    .ok_or_else(|| ArbitrageError::Api("Auth token not available".to_string()))
+                    .ok_or_else(|| Error::Api("Auth token not available".to_string()))
             }
         }
     }
@@ -340,10 +340,10 @@ impl KalshiClient {
             .header("Authorization", auth)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get market: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get market: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get market {}: {}",
                 ticker,
                 response.status()
@@ -356,7 +356,7 @@ impl KalshiClient {
         }
 
         let resp: MarketResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse market: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse market: {}", e)))?;
 
         // Update cache
         {
@@ -378,10 +378,10 @@ impl KalshiClient {
             .query(&[("event_ticker", event_ticker)])
             .send()
             .await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get markets: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get markets: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get markets for event {}: {}",
                 event_ticker,
                 response.status()
@@ -394,7 +394,7 @@ impl KalshiClient {
         }
 
         let resp: MarketsResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse markets: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse markets: {}", e)))?;
 
         Ok(resp.markets)
     }
@@ -454,13 +454,13 @@ impl KalshiClient {
             .json(&request)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to place order: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to place order: {}", e)))?;
 
         let status = response.status();
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
             error!("Kalshi order failed: {} - {}", status, body);
-            return Err(ArbitrageError::OrderRejected(format!(
+            return Err(Error::OrderRejected(format!(
                 "Kalshi order rejected: {} - {}",
                 status, body
             )));
@@ -472,7 +472,7 @@ impl KalshiClient {
         }
 
         let resp: OrderResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse order response: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse order response: {}", e)))?;
 
         info!(
             "Kalshi order placed: {} {} {} @ {} cents",
@@ -493,10 +493,10 @@ impl KalshiClient {
             .header("Authorization", auth)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get order: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get order: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get order {}: {}",
                 order_id,
                 response.status()
@@ -509,7 +509,7 @@ impl KalshiClient {
         }
 
         let resp: OrderResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse order: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse order: {}", e)))?;
 
         Ok(resp.order)
     }
@@ -524,10 +524,10 @@ impl KalshiClient {
             .header("Authorization", auth)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to cancel order: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to cancel order: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to cancel order {}: {}",
                 order_id,
                 response.status()
@@ -540,7 +540,7 @@ impl KalshiClient {
         }
 
         let resp: OrderResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse cancel response: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse cancel response: {}", e)))?;
 
         Ok(resp.order)
     }
@@ -560,10 +560,10 @@ impl KalshiClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get fills: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get fills: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get fills: {}",
                 response.status()
             )));
@@ -575,7 +575,7 @@ impl KalshiClient {
         }
 
         let resp: FillsResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse fills: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse fills: {}", e)))?;
 
         Ok(resp.fills)
     }
@@ -590,10 +590,10 @@ impl KalshiClient {
             .header("Authorization", auth)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get positions: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get positions: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get positions: {}",
                 response.status()
             )));
@@ -605,7 +605,7 @@ impl KalshiClient {
         }
 
         let resp: PositionsResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse positions: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse positions: {}", e)))?;
 
         Ok(resp.market_positions)
     }
@@ -620,17 +620,17 @@ impl KalshiClient {
             .header("Authorization", auth)
             .send()
             .await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get balance: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get balance: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get balance: {}",
                 response.status()
             )));
         }
 
         let resp: KalshiBalance = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse balance: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse balance: {}", e)))?;
 
         Ok(resp)
     }
@@ -647,10 +647,10 @@ impl KalshiClient {
         }
 
         let response = req.send().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to get orderbook: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to get orderbook: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ArbitrageError::Api(format!(
+            return Err(Error::Api(format!(
                 "Failed to get orderbook for {}: {}",
                 ticker,
                 response.status()
@@ -663,7 +663,7 @@ impl KalshiClient {
         }
 
         let resp: OrderbookResponse = response.json().await
-            .map_err(|e| ArbitrageError::Api(format!("Failed to parse orderbook: {}", e)))?;
+            .map_err(|e| Error::Api(format!("Failed to parse orderbook: {}", e)))?;
 
         Ok(resp.orderbook)
     }

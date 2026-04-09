@@ -22,7 +22,7 @@ use crate::api::{
     opinion::{OpinionClient, OpinionOrder, OpinionAction},
 };
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{
         ArbitrageLeg, ArbitrageOpportunity, Order, OrderStatus, OrderType,
         Outcome, Price, Quantity, Side, TokenId, Trade,
@@ -373,7 +373,7 @@ impl CrossPlatformExecutor {
 
         // Validate opportunity is still valid
         if !opportunity.is_valid() {
-            return Err(ArbitrageError::Execution(
+            return Err(Error::Execution(
                 "Opportunity expired before execution".to_string()
             ));
         }
@@ -519,7 +519,7 @@ impl CrossPlatformExecutor {
                         aborted_at: Utc::now(),
                     };
 
-                    return Err(ArbitrageError::Execution(format!(
+                    return Err(Error::Execution(format!(
                         "First leg fill too small: {:.1}% (min: {:.1}%)",
                         fill_pct * dec!(100),
                         self.config.min_first_leg_fill_pct * dec!(100)
@@ -564,7 +564,7 @@ impl CrossPlatformExecutor {
         let price_move = (current_hedge_price.as_decimal() - leg.target_price.as_decimal()).abs();
 
         if price_move > self.config.abort_price_threshold {
-            return Err(ArbitrageError::Execution(format!(
+            return Err(Error::Execution(format!(
                 "Hedge price moved {:.2}% (threshold: {:.2}%)",
                 price_move * dec!(100),
                 self.config.abort_price_threshold * dec!(100)
@@ -599,7 +599,7 @@ impl CrossPlatformExecutor {
                 let new_move = (new_price.as_decimal() - leg.target_price.as_decimal()).abs();
 
                 if new_move > self.config.max_hedge_slippage {
-                    return Err(ArbitrageError::Execution(format!(
+                    return Err(Error::Execution(format!(
                         "Hedge slippage too high: {:.2}% (max: {:.2}%)",
                         new_move * dec!(100),
                         self.config.max_hedge_slippage * dec!(100)
@@ -732,7 +732,7 @@ impl CrossPlatformExecutor {
         }
 
         Err(last_error.unwrap_or_else(||
-            ArbitrageError::Execution("Hedge leg failed after all retries".to_string())
+            Error::Execution("Hedge leg failed after all retries".to_string())
         ))
     }
 
@@ -892,7 +892,7 @@ impl CrossPlatformExecutor {
                     }
                 }
                 OrderFillStatus::Cancelled | OrderFillStatus::Rejected => {
-                    return Err(ArbitrageError::Execution("Order cancelled or rejected".to_string()));
+                    return Err(Error::Execution("Order cancelled or rejected".to_string()));
                 }
                 OrderFillStatus::Pending => {
                     // Keep waiting
@@ -902,7 +902,7 @@ impl CrossPlatformExecutor {
             sleep(poll_interval).await;
         }
 
-        Err(ArbitrageError::Execution(format!(
+        Err(Error::Execution(format!(
             "Order {} timed out after {:?}",
             order_id, timeout_duration
         )))
@@ -1009,9 +1009,9 @@ impl CrossPlatformExecutor {
                     Side::Buy => orderbook.asks.first().map(|l| l.price),
                     Side::Sell => orderbook.bids.first().map(|l| l.price),
                 };
-                price.ok_or_else(|| ArbitrageError::Execution("No price available".to_string()))
+                price.ok_or_else(|| Error::Execution("No price available".to_string()))
                     .and_then(|p| Price::new(p).ok_or_else(||
-                        ArbitrageError::Execution("Invalid price".to_string())
+                        Error::Execution("Invalid price".to_string())
                     ))
             }
             Venue::Kalshi => {
@@ -1020,7 +1020,7 @@ impl CrossPlatformExecutor {
                     Side::Buy => market.yes_ask_price(),
                     Side::Sell => market.yes_bid_price(),
                 };
-                price.ok_or_else(|| ArbitrageError::Execution("No price available".to_string()))
+                price.ok_or_else(|| Error::Execution("No price available".to_string()))
             }
             Venue::Opinion => {
                 let orderbook = self.opinion.get_orderbook(market_id, token_id).await?;
@@ -1029,7 +1029,7 @@ impl CrossPlatformExecutor {
                     Side::Sell => orderbook.best_lay().map(|l| l.price),
                 };
                 price.and_then(|p| Price::new(p))
-                    .ok_or_else(|| ArbitrageError::Execution("No price available".to_string()))
+                    .ok_or_else(|| Error::Execution("No price available".to_string()))
             }
         }
     }

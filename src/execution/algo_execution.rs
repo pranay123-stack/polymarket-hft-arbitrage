@@ -34,7 +34,7 @@ use crate::api::{
     opinion::{OpinionClient, OpinionAction},
 };
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{Order, OrderStatus, OrderType, Outcome, Price, Quantity, Side},
 };
 use chrono::{DateTime, Duration, Utc};
@@ -371,20 +371,20 @@ impl AlgoExecutionEngine {
     /// Validate algo configuration
     fn validate_config(&self, config: &AlgoConfig) -> Result<()> {
         if config.total_quantity.as_decimal() <= Decimal::ZERO {
-            return Err(ArbitrageError::Execution("Total quantity must be positive".to_string()));
+            return Err(Error::Execution("Total quantity must be positive".to_string()));
         }
 
         if config.end_time <= config.start_time {
-            return Err(ArbitrageError::Execution("End time must be after start time".to_string()));
+            return Err(Error::Execution("End time must be after start time".to_string()));
         }
 
         if config.num_slices == 0 {
-            return Err(ArbitrageError::Execution("Must have at least 1 slice".to_string()));
+            return Err(Error::Execution("Must have at least 1 slice".to_string()));
         }
 
         let duration = config.end_time - config.start_time;
         if duration < Duration::seconds(60) {
-            return Err(ArbitrageError::Execution("Execution window must be at least 60 seconds".to_string()));
+            return Err(Error::Execution("Execution window must be at least 60 seconds".to_string()));
         }
 
         Ok(())
@@ -871,7 +871,7 @@ impl AlgoExecutionEngine {
             let _ = exec.cancel_tx.send(()).await;
             Ok(())
         } else {
-            Err(ArbitrageError::Execution(format!("Execution {} not found", id)))
+            Err(Error::Execution(format!("Execution {} not found", id)))
         }
     }
 

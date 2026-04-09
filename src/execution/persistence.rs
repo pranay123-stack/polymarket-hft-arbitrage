@@ -21,7 +21,7 @@
 //! - `positions`: Current position snapshot
 //! - `recovery_queue`: Pending recovery tasks
 
-use crate::core::error::{ArbitrageError, Result};
+use crate::core::error::{Error, Result};
 use crate::core::types::{Order, OrderStatus, Outcome, Price, Quantity, Side, Trade};
 use crate::execution::{
     ExecutionRecord, ExecutionState, FilledLegInfo, Venue,
@@ -83,7 +83,7 @@ impl ExecutionPersistence {
             .acquire_timeout(config.connect_timeout)
             .connect(&config.database_url)
             .await
-            .map_err(|e| ArbitrageError::Database(format!("Failed to connect to database: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to connect to database: {}", e)))?;
 
         let persistence = Self {
             pool,
@@ -227,7 +227,7 @@ impl ExecutionPersistence {
         "#)
         .execute(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to initialize schema: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to initialize schema: {}", e)))?;
 
         Ok(())
     }
@@ -236,11 +236,11 @@ impl ExecutionPersistence {
     pub async fn save_execution(&self, record: &ExecutionRecord) -> Result<()> {
         let state_type = self.state_type_string(&record.state);
         let state_data = serde_json::to_value(&record.state)
-            .map_err(|e| ArbitrageError::Database(format!("Failed to serialize state: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to serialize state: {}", e)))?;
         let leg_a_data = serde_json::to_value(&record.leg_a)
-            .map_err(|e| ArbitrageError::Database(format!("Failed to serialize leg_a: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to serialize leg_a: {}", e)))?;
         let leg_b_data = serde_json::to_value(&record.leg_b)
-            .map_err(|e| ArbitrageError::Database(format!("Failed to serialize leg_b: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to serialize leg_b: {}", e)))?;
 
         sqlx::query(r#"
             INSERT INTO executions (
@@ -264,7 +264,7 @@ impl ExecutionPersistence {
         .bind(record.hedge_retry_count as i32)
         .execute(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to save execution: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to save execution: {}", e)))?;
 
         // Update cache
         self.cache.write().await.insert(record.id, record.clone());
@@ -289,7 +289,7 @@ impl ExecutionPersistence {
         .bind(id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to load execution: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to load execution: {}", e)))?;
 
         match row {
             Some(row) => {
@@ -312,7 +312,7 @@ impl ExecutionPersistence {
         "#)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to load pending executions: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to load pending executions: {}", e)))?;
 
         let mut records = Vec::new();
         for row in rows {
@@ -361,7 +361,7 @@ impl ExecutionPersistence {
         .bind(Utc::now())
         .execute(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to save order: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to save order: {}", e)))?;
 
         Ok(())
     }
@@ -392,7 +392,7 @@ impl ExecutionPersistence {
         .bind(order_id)
         .execute(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to update order: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to update order: {}", e)))?;
 
         Ok(())
     }
@@ -425,7 +425,7 @@ impl ExecutionPersistence {
         .bind(trade.timestamp)
         .execute(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to save trade: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to save trade: {}", e)))?;
 
         Ok(())
     }
@@ -462,7 +462,7 @@ impl ExecutionPersistence {
         .bind(trade.side.to_string())
         .execute(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to update position: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to update position: {}", e)))?;
 
         Ok(())
     }
@@ -484,7 +484,7 @@ impl ExecutionPersistence {
         .bind(priority)
         .execute(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to queue recovery: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to queue recovery: {}", e)))?;
 
         Ok(())
     }
@@ -501,7 +501,7 @@ impl ExecutionPersistence {
         "#)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to get recovery task: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to get recovery task: {}", e)))?;
 
         match row {
             Some(row) => Ok(Some(RecoveryTask {
@@ -528,7 +528,7 @@ impl ExecutionPersistence {
                 .bind(task_id)
                 .execute(&self.pool)
                 .await
-                .map_err(|e| ArbitrageError::Database(format!("Failed to complete recovery: {}", e)))?;
+                .map_err(|e| Error::Database(format!("Failed to complete recovery: {}", e)))?;
         } else {
             // Update attempt count and schedule next attempt
             sqlx::query(r#"
@@ -543,7 +543,7 @@ impl ExecutionPersistence {
             .bind(error_message)
             .execute(&self.pool)
             .await
-            .map_err(|e| ArbitrageError::Database(format!("Failed to update recovery: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to update recovery: {}", e)))?;
         }
 
         Ok(())
@@ -563,7 +563,7 @@ impl ExecutionPersistence {
         "#)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to get stats: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to get stats: {}", e)))?;
 
         Ok(ExecutionStats {
             total_executions: row.get::<i64, _>("total_executions") as u64,
@@ -584,7 +584,7 @@ impl ExecutionPersistence {
         .bind(days)
         .execute(&self.pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to cleanup: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to cleanup: {}", e)))?;
 
         Ok(result.rows_affected())
     }
@@ -613,11 +613,11 @@ impl ExecutionPersistence {
         let leg_b_data: serde_json::Value = row.get("leg_b_data");
 
         let state: ExecutionState = serde_json::from_value(state_data)
-            .map_err(|e| ArbitrageError::Database(format!("Failed to deserialize state: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to deserialize state: {}", e)))?;
         let leg_a: CrossPlatformLeg = serde_json::from_value(leg_a_data)
-            .map_err(|e| ArbitrageError::Database(format!("Failed to deserialize leg_a: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to deserialize leg_a: {}", e)))?;
         let leg_b: CrossPlatformLeg = serde_json::from_value(leg_b_data)
-            .map_err(|e| ArbitrageError::Database(format!("Failed to deserialize leg_b: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Failed to deserialize leg_b: {}", e)))?;
 
         Ok(ExecutionRecord {
             id: row.get("id"),

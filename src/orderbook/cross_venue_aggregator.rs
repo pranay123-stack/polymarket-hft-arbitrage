@@ -17,7 +17,7 @@ use crate::api::{
     opinion_ws::{OpinionPriceLadder, OpinionWsEvent},
 };
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{Price, Quantity, Side, Outcome},
 };
 use crate::execution::cross_platform::Venue;

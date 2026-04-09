@@ -9,7 +9,7 @@
 //! Critical for cross-platform arbitrage where latency matters.
 
 use crate::core::{
-    error::{ArbitrageError, Result},
+    error::{Error, Result},
     types::{Price, Quantity, Side},
 };
 use chrono::{DateTime, Utc};
@@ -324,7 +324,7 @@ impl KalshiWebSocket {
 
         if let Some(cmd_tx) = &self.cmd_tx {
             cmd_tx.send(KalshiWsCommand::Subscribe(channels.clone())).await
-                .map_err(|_| ArbitrageError::WebSocket("Failed to send subscribe command".to_string()))?;
+                .map_err(|_| Error::WebSocket("Failed to send subscribe command".to_string()))?;
         }
 
         // Initialize orderbook
@@ -346,7 +346,7 @@ impl KalshiWebSocket {
 
         if let Some(cmd_tx) = &self.cmd_tx {
             cmd_tx.send(KalshiWsCommand::Subscribe(channels)).await
-                .map_err(|_| ArbitrageError::WebSocket("Failed to send subscribe command".to_string()))?;
+                .map_err(|_| Error::WebSocket("Failed to send subscribe command".to_string()))?;
         }
 
         Ok(())
@@ -385,7 +385,7 @@ impl KalshiWebSocket {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
-        Err(ArbitrageError::WebSocket("Connection timeout".to_string()))
+        Err(Error::WebSocket("Connection timeout".to_string()))
     }
 
     /// Main connection loop with reconnection
@@ -448,10 +448,10 @@ impl KalshiWebSocket {
         latency: &Arc<RwLock<u64>>,
     ) -> Result<()> {
         let url = Url::parse(&config.ws_url)
-            .map_err(|e| ArbitrageError::WebSocket(format!("Invalid URL: {}", e)))?;
+            .map_err(|e| Error::WebSocket(format!("Invalid URL: {}", e)))?;
 
         let (ws_stream, _) = connect_async(url).await
-            .map_err(|e| ArbitrageError::WebSocket(format!("Connection failed: {}", e)))?;
+            .map_err(|e| Error::WebSocket(format!("Connection failed: {}", e)))?;
 
         let (mut write, mut read) = ws_stream.split();
 
@@ -461,7 +461,7 @@ impl KalshiWebSocket {
             "token": config.auth_token
         });
         write.send(Message::Text(auth_msg.to_string())).await
-            .map_err(|e| ArbitrageError::WebSocket(format!("Auth failed: {}", e)))?;
+            .map_err(|e| Error::WebSocket(format!("Auth failed: {}", e)))?;
 
         *connected.write().await = true;
         let _ = event_tx.send(KalshiWsEvent::Connected);
@@ -472,9 +472,9 @@ impl KalshiWebSocket {
         if !subs.is_empty() {
             let sub_msg = KalshiWsMessage::Subscribe { channels: subs };
             let msg_str = serde_json::to_string(&sub_msg)
-                .map_err(|e| ArbitrageError::Internal(format!("Serialize error: {}", e)))?;
+                .map_err(|e| Error::Internal(format!("Serialize error: {}", e)))?;
             write.send(Message::Text(msg_str)).await
-                .map_err(|e| ArbitrageError::WebSocket(format!("Subscribe failed: {}", e)))?;
+                .map_err(|e| Error::WebSocket(format!("Subscribe failed: {}", e)))?;
         }
 
         let mut ping_interval = interval(Duration::from_secs(config.ping_interval_secs));
@@ -500,7 +500,7 @@ impl KalshiWebSocket {
                             return Ok(());
                         }
                         Some(Err(e)) => {
-                            return Err(ArbitrageError::WebSocket(format!("Read error: {}", e)));
+                            return Err(Error::WebSocket(format!("Read error: {}", e)));
                         }
                         None => {
                             return Ok(());
@@ -515,18 +515,18 @@ impl KalshiWebSocket {
                         Some(KalshiWsCommand::Subscribe(channels)) => {
                             let msg = KalshiWsMessage::Subscribe { channels: channels.clone() };
                             let msg_str = serde_json::to_string(&msg)
-                                .map_err(|e| ArbitrageError::Internal(format!("Serialize error: {}", e)))?;
+                                .map_err(|e| Error::Internal(format!("Serialize error: {}", e)))?;
                             write.send(Message::Text(msg_str)).await
-                                .map_err(|e| ArbitrageError::WebSocket(format!("Send error: {}", e)))?;
+                                .map_err(|e| Error::WebSocket(format!("Send error: {}", e)))?;
 
                             subscriptions.write().await.extend(channels);
                         }
                         Some(KalshiWsCommand::Unsubscribe(channels)) => {
                             let msg = KalshiWsMessage::Unsubscribe { channels: channels.clone() };
                             let msg_str = serde_json::to_string(&msg)
-                                .map_err(|e| ArbitrageError::Internal(format!("Serialize error: {}", e)))?;
+                                .map_err(|e| Error::Internal(format!("Serialize error: {}", e)))?;
                             write.send(Message::Text(msg_str)).await
-                                .map_err(|e| ArbitrageError::WebSocket(format!("Send error: {}", e)))?;
+                                .map_err(|e| Error::WebSocket(format!("Send error: {}", e)))?;
 
                             let mut subs = subscriptions.write().await;
                             subs.retain(|c| !channels.contains(c));
@@ -559,7 +559,7 @@ impl KalshiWebSocket {
         event_tx: &broadcast::Sender<KalshiWsEvent>,
     ) -> Result<()> {
         let msg: KalshiWsMessage = serde_json::from_str(text)
-            .map_err(|e| ArbitrageError::Internal(format!("Parse error: {} - {}", e, text)))?;
+            .map_err(|e| Error::Internal(format!("Parse error: {} - {}", e, text)))?;
 
         match msg {
             KalshiWsMessage::OrderbookSnapshot { market_ticker, yes, no, ts: _ } => {

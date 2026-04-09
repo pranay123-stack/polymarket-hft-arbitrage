@@ -13,7 +13,7 @@
 //! - Real-time streaming
 //! - Queryable history
 
-use crate::core::error::{ArbitrageError, Result};
+use crate::core::error::{Error, Result};
 use crate::execution::cross_platform::{
     CrossPlatformOpportunity, ExecutionRecord, ExecutionState,
     FilledLegInfo, Venue, AbortReason,
@@ -249,7 +249,7 @@ impl AuditTrail {
                         .max_connections(5)
                         .connect(url)
                         .await
-                        .map_err(|e| ArbitrageError::Database(format!("Audit DB connection failed: {}", e)))?
+                        .map_err(|e| Error::Database(format!("Audit DB connection failed: {}", e)))?
                 )
             } else {
                 None
@@ -333,7 +333,7 @@ impl AuditTrail {
         "#)
         .execute(pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Schema creation failed: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Schema creation failed: {}", e)))?;
 
         info!("Audit trail schema initialized");
         Ok(())
@@ -466,7 +466,7 @@ impl AuditTrail {
         .bind(event.sequence as i64)
         .execute(pool)
         .await
-        .map_err(|e| ArbitrageError::Database(format!("Failed to insert audit event: {}", e)))?;
+        .map_err(|e| Error::Database(format!("Failed to insert audit event: {}", e)))?;
 
         Ok(())
     }
@@ -515,7 +515,7 @@ impl AuditTrail {
             ))
             .fetch_all(pool)
             .await
-            .map_err(|e| ArbitrageError::Database(format!("Query failed: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Query failed: {}", e)))?;
 
             let events: Vec<AuditEvent> = rows.iter().filter_map(|row| {
                 Some(AuditEvent {
@@ -565,7 +565,7 @@ impl AuditTrail {
             .bind(execution_id)
             .fetch_all(pool)
             .await
-            .map_err(|e| ArbitrageError::Database(format!("Query failed: {}", e)))?;
+            .map_err(|e| Error::Database(format!("Query failed: {}", e)))?;
 
             // Parse rows (simplified)
             Ok(vec![])

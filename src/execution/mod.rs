@@ -10,6 +10,7 @@
 //! - Order amendment/modification without race conditions
 //! - Algorithmic execution (TWAP/VWAP/POV) for large orders
 //! - Persistent state storage and crash recovery
+//! - Graceful degradation and fallback venue selection
 
 pub mod engine;
 pub mod router;
@@ -19,6 +20,7 @@ pub mod state_coordinator;
 pub mod order_amendment;
 pub mod algo_execution;
 pub mod persistence;
+pub mod fallback;
 
 pub use engine::ExecutionEngine;
 pub use router::SmartOrderRouter;
@@ -42,4 +44,8 @@ pub use algo_execution::{
 };
 pub use persistence::{
     ExecutionPersistence, PersistenceConfig, RecoveryTask, ExecutionStats,
+};
+pub use fallback::{
+    FallbackManager, FallbackConfig, VenueHealthStatus, VenueHealthMetrics,
+    SystemMode, SystemStatus,
 };
