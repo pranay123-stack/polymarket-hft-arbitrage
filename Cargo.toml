@@ -96,6 +96,7 @@ indexmap = { version = "2.2", features = ["serde"] }
 # Configuration
 config = "0.14"
 dotenvy = "0.15"
+clap = { version = "4.4", features = ["derive"] }
 
 # Logging and tracing
 tracing = "0.1"
