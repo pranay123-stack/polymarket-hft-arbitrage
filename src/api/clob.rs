@@ -233,6 +233,36 @@ impl ClobClient {
         self.request(reqwest::Method::POST, "/order", Some(&body)).await
     }
 
+    /// Place a limit order with explicit parameters
+    ///
+    /// Convenience method for placing orders without constructing an Order struct.
+    /// Useful for order amendments and direct order placement.
+    #[instrument(skip(self), fields(token_id = %token_id, side = ?side))]
+    pub async fn place_order_params(
+        &self,
+        token_id: &str,
+        side: Side,
+        price: Price,
+        quantity: Quantity,
+        order_type: OrderType,
+    ) -> Result<OrderResponse> {
+        let order = Order {
+            id: uuid::Uuid::new_v4().to_string(),
+            market_id: String::new(),  // Not needed for CLOB API
+            token_id: token_id.to_string(),
+            side,
+            outcome: Outcome::Yes,  // Determined by token_id
+            price,
+            quantity,
+            order_type,
+            expiration: None,
+            created_at: Utc::now(),
+            client_order_id: None,
+        };
+
+        self.place_order(&order).await
+    }
+
     /// Place multiple orders atomically
     pub async fn place_orders(&self, orders: &[Order]) -> Result<Vec<OrderResponse>> {
         let mut responses = Vec::with_capacity(orders.len());
