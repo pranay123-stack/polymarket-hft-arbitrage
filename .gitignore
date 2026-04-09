@@ -1,0 +1,50 @@
+# Build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Configuration with secrets
+config/config.toml
+.env
+*.key
+*.pem
+
+# Logs
+/logs/
+*.log
+
+# Data
+/data/
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+/coverage/
+*.gcov
+*.gcda
+*.gcno
+
+# Profiling
+perf.data
+perf.data.old
+flamegraph.svg
+
+# Dependencies lock file backup
+Cargo.lock.bak
+
+# Documentation build
+/target/doc/
+
+# Benchmark results
+/target/criterion/

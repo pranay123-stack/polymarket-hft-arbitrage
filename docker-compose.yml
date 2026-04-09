@@ -1,0 +1,134 @@
+version: "3.8"
+
+services:
+  # ==========================================================================
+  # Polymarket HFT Arbitrage Bot
+  # ==========================================================================
+  polymarket-hft:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: polymarket-hft
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+      - POLYBOT_PRIVATE_KEY=${POLYBOT_PRIVATE_KEY}
+      - POLYBOT_API_KEY=${POLYBOT_API_KEY:-}
+      - POLYBOT_API_SECRET=${POLYBOT_API_SECRET:-}
+      - POLYBOT_DB_PASSWORD=${POLYBOT_DB_PASSWORD:-polybot}
+      - POLYBOT_REDIS_PASSWORD=${POLYBOT_REDIS_PASSWORD:-}
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - ./data:/app/data
+    ports:
+      - "8080:8080"  # Dashboard
+      - "8081:8081"  # Health check
+      - "9090:9090"  # Prometheus metrics
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - polymarket-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================================================
+  # PostgreSQL Database
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: polymarket-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=polybot
+      - POSTGRES_PASSWORD=${POLYBOT_DB_PASSWORD:-polybot}
+      - POSTGRES_DB=polymarket_hft
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - polymarket-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polybot -d polymarket_hft"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Redis Cache
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: polymarket-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - polymarket-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Prometheus Monitoring
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: polymarket-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9091:9090"
+    networks:
+      - polymarket-net
+    depends_on:
+      - polymarket-hft
+
+  # ==========================================================================
+  # Grafana Dashboard
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: polymarket-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - polymarket-net
+    depends_on:
+      - prometheus
+
+networks:
+  polymarket-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

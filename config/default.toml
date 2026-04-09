@@ -1,0 +1,215 @@
+# Polymarket HFT Arbitrage Bot Configuration
+# Copy this file to config.toml and customize
+
+# =============================================================================
+# Trading Mode
+# =============================================================================
+# Options: "simulation", "paper", "live"
+# - simulation: Uses historical data, no real connections
+# - paper: Real market data, simulated trades
+# - live: Real trading with real money
+mode = "paper"
+
+# =============================================================================
+# API Configuration
+# =============================================================================
+[api]
+# CLOB API endpoints
+clob_http_url = "https://clob.polymarket.com"
+clob_ws_url = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+
+# Gamma API for market data
+gamma_api_url = "https://gamma-api.polymarket.com"
+
+# Request timeout
+request_timeout = "10s"
+
+# Maximum retries for failed requests
+max_retries = 3
+
+# Rate limit (requests per second)
+rate_limit_rps = 10
+
+# Use proxy wallet for trading
+use_proxy_wallet = true
+
+# =============================================================================
+# Blockchain Configuration
+# =============================================================================
+[blockchain]
+# Polygon RPC endpoints
+polygon_rpc_http = "https://polygon-rpc.com"
+polygon_rpc_ws = "wss://polygon-bor-rpc.publicnode.com"
+
+# Chain ID (137 = Polygon mainnet)
+chain_id = 137
+
+# Contract addresses (Polymarket mainnet)
+ctf_exchange_address = "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8DB438C"
+neg_risk_ctf_exchange_address = "0xC5d563A36AE78145C45a50134d48A1215220f80a"
+usdc_address = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+conditional_tokens_address = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"
+
+# Gas settings
+gas_strategy = "fast"  # slow, standard, fast, instant
+max_gas_price_gwei = 500
+confirmation_blocks = 1
+
+# =============================================================================
+# Trading Configuration
+# =============================================================================
+[trading]
+# Minimum profit threshold (in USDC) to execute a trade
+min_profit_threshold = "0.10"
+
+# Minimum profit percentage to execute
+min_profit_pct = "0.5"
+
+# Default order size in USDC
+default_order_size = "10"
+
+# Maximum order size in USDC
+max_order_size = "100"
+
+# Minimum liquidity required (in shares)
+min_liquidity = "50"
+
+# Maximum spread to accept (decimal)
+max_spread = "0.10"
+
+# Order expiration
+order_expiration = "5m"
+
+# Order timeout (cancel if not filled)
+order_timeout = "60s"
+
+# Enable atomic execution (all-or-nothing)
+atomic_execution = true
+
+# Slippage tolerance (decimal)
+slippage_tolerance = "0.01"
+
+# Fee rate (Polymarket charges ~2%)
+fee_rate = "0.02"
+
+# =============================================================================
+# Risk Management
+# =============================================================================
+[risk]
+# Maximum position size per market (USDC)
+max_position_size = "500"
+
+# Maximum total exposure (USDC)
+max_total_exposure = "2000"
+
+# Maximum daily loss (USDC)
+max_daily_loss = "100"
+
+# Maximum drawdown percentage
+max_drawdown_pct = "10"
+
+# Maximum number of open positions
+max_open_positions = 10
+
+# Maximum orders per minute
+max_orders_per_minute = 60
+
+# Maximum correlation between positions
+max_correlation = "0.8"
+
+# Circuit breaker settings
+circuit_breaker_enabled = true
+circuit_breaker_cooldown = "5m"
+max_consecutive_losses = 5
+
+# Kill switch (emergency stop)
+kill_switch_enabled = true
+
+# =============================================================================
+# Strategy Configuration
+# =============================================================================
+[strategy]
+# Enable specific arbitrage strategies
+binary_mispricing = true
+multi_outcome = true
+cross_market = true
+temporal = true
+statistical = false
+
+# Markets to focus on (empty = all markets)
+focus_markets = []
+
+# Markets to exclude
+exclude_markets = []
+
+# Minimum market volume to consider
+min_market_volume = "1000"
+
+# Scan interval for opportunities
+scan_interval = "100ms"
+
+# Binary mispricing threshold (sum deviation from 1.0)
+binary_threshold = "0.02"
+
+# Cross-market correlation threshold
+cross_market_threshold = "0.05"
+
+# =============================================================================
+# Database Configuration
+# =============================================================================
+[database]
+# PostgreSQL settings
+host = "localhost"
+port = 5432
+database = "polymarket_hft"
+username = "polybot"
+max_connections = 10
+
+# Redis settings
+redis_url = "redis://localhost:6379"
+
+# Enable database persistence
+enabled = true
+
+# =============================================================================
+# Monitoring Configuration
+# =============================================================================
+[monitoring]
+# Prometheus metrics
+prometheus_enabled = true
+prometheus_port = 9090
+
+# Dashboard
+dashboard_enabled = true
+dashboard_port = 8080
+
+# Health check endpoint
+health_port = 8081
+
+# Metrics collection interval
+metrics_interval = "10s"
+
+# Alerting (Discord/Slack webhook)
+# alert_webhook_url = "https://hooks.slack.com/services/xxx"
+alert_on_trade = true
+alert_on_error = true
+alert_on_circuit_breaker = true
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+[logging]
+# Log level: trace, debug, info, warn, error
+level = "info"
+
+# Format: json, pretty, compact
+format = "json"
+
+# File logging
+file_enabled = true
+file_path = "./logs/polymarket-hft.log"
+
+# Rotation: daily, hourly, size, never
+rotation = "daily"
+max_size_mb = 100
+retention_count = 7
