@@ -1,3 +1,19 @@
+> ### ⚠️ Build status: does not currently compile
+>
+> This crate does **not** build as committed — `cargo build` fails with library errors, so
+> its test suite has never run. The CI workflow referenced a GitHub Action that does not
+> exist (`dtolnay/rust-action`, which should be `dtolnay/rust-toolchain`), which is why no
+> workflow run ever caught this. The action reference has now been corrected so CI will
+> report the true state.
+>
+> The architecture and venue-adapter work here are real and worth reading, but nothing in
+> this repository should be treated as working or measured software until it builds.
+>
+> For prediction-market systems that are built and tested, see
+> **[prediction-market-systems](https://github.com/pranay123-stack/prediction-market-systems)**.
+
+---
+
 # Cross-Platform Prediction Market Arbitrage Bot
 
 A production-grade, high-frequency trading bot for cross-platform arbitrage across **Polymarket**, **Kalshi**, and **Opinion** prediction markets. Built in Rust for maximum performance and reliability.
