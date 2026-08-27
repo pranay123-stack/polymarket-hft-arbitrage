@@ -10,7 +10,7 @@
 > this repository should be treated as working or measured software until it builds.
 >
 > For prediction-market systems that are built and tested, see
-> **[prediction-market-systems](https://github.com/pranay123-stack/prediction-market-systems)**.
+> **[prediction-market-algorithmic-trading](https://github.com/pranay123-stack/prediction-market-algorithmic-trading)**.
 
 ---
 
